@@ -73,9 +73,9 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
   const { getRootProps, getInputProps, isDragActive, fileRejections } = useDropzone({
     onDrop,
     accept: {
-      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.tiff']
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.tiff', '.tif', '.bmp', '.webp', '.svg']
     },
-    maxSize: 10 * 1024 * 1024, // 10MB
+    maxSize: 50 * 1024 * 1024, // Increased to 50MB for high-res images
     multiple: false
   });
 
@@ -106,7 +106,7 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
               {isDragActive ? 'Drop the file here' : 'Choose file or drag it here'}
             </p>
             <p className="text-xs text-muted-foreground" data-testid="text-file-types">
-              PNG, JPG, GIF up to 10MB
+              PNG, JPG, GIF, TIFF, BMP, WebP, SVG up to 50MB
             </p>
           </div>
         </Card>
@@ -131,7 +131,7 @@ export default function UploadZone({ onUploadComplete }: UploadZoneProps) {
         <div className="mt-6 text-xs text-muted-foreground space-y-2">
           <p data-testid="text-supported-formats">
             <Info className="inline mr-1 h-3 w-3" /> 
-            Supported formats: PNG, JPG, GIF, TIFF
+            Supported formats: PNG, JPG, GIF, TIFF, BMP, WebP, SVG
           </p>
           <p data-testid="text-privacy-notice">
             <Shield className="inline mr-1 h-3 w-3" /> 

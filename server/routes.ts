@@ -8,15 +8,40 @@ import { insertMapProjectSchema, mapSettingsSchema, type MapProject } from "@sha
 import sharp from "sharp";
 import PDFDocument from "pdfkit";
 
-// Configure multer for file uploads
+// Define extended Request type for multer file uploads
+interface MulterRequest extends Request {
+  file?: Express.Multer.File;
+}
+
+// Configure multer for file uploads with enhanced format support
 const upload = multer({
   dest: 'uploads/',
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
+    fileSize: 50 * 1024 * 1024 // Increased to 50MB for high-res images
   },
   fileFilter: (req, file, cb) => {
-    const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/tiff'];
-    cb(null, allowedMimes.includes(file.mimetype));
+    const allowedMimes = [
+      'image/jpeg', 'image/jpg',
+      'image/png', 
+      'image/gif',
+      'image/tiff', 'image/tif',
+      'image/bmp',
+      'image/webp',
+      'image/svg+xml'
+    ];
+    
+    // Additional validation by file extension
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.tiff', '.tif', '.bmp', '.webp', '.svg'];
+    const fileExtension = path.extname(file.originalname).toLowerCase();
+    
+    const isValidMime = allowedMimes.includes(file.mimetype);
+    const isValidExtension = allowedExtensions.includes(fileExtension);
+    
+    if (isValidMime && isValidExtension) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Unsupported file format. Allowed formats: ${allowedExtensions.join(', ')}`));
+    }
   }
 });
 
@@ -32,6 +57,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const fileBuffer = await fs.readFile(req.file.path);
       const metadata = await sharp(fileBuffer).metadata();
       
+      // Validate that we can get image dimensions
+      if (!metadata.width || !metadata.height) {
+        await fs.unlink(req.file.path);
+        return res.status(400).json({ error: "Unable to process image - invalid dimensions" });
+      }
+      
       // Store file as base64 for simplicity (in production, use cloud storage)
       const base64Image = `data:${req.file.mimetype};base64,${fileBuffer.toString('base64')}`;
       
@@ -40,10 +71,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const project = await storage.createMapProject({
         fileName: req.file.originalname,
         originalImageUrl: base64Image,
+        imageWidth: metadata.width,
+        imageHeight: metadata.height,
         settings: defaultSettings,
         scale: 1,
         offsetX: 0,
         offsetY: 0,
+        rotation: 0,
         status: "uploaded"
       });
 
@@ -53,6 +87,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(project);
     } catch (error) {
       console.error("Upload error:", error);
+      // Clean up temp file on error
+      if (req.file?.path) {
+        try {
+          await fs.unlink(req.file.path);
+        } catch (unlinkError) {
+          console.error("Failed to clean up temp file:", unlinkError);
+        }
+      }
       res.status(500).json({ error: "Failed to upload image" });
     }
   });
@@ -61,9 +103,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/maps/:id/calibration", async (req, res) => {
     try {
       const { id } = req.params;
-      const { scale, offsetX, offsetY } = req.body;
+      const { scale, offsetX, offsetY, rotation } = req.body;
 
-      if (typeof scale !== 'number' || typeof offsetX !== 'number' || typeof offsetY !== 'number') {
+      if (typeof scale !== 'number' || typeof offsetX !== 'number' || typeof offsetY !== 'number' || typeof rotation !== 'number') {
         return res.status(400).json({ error: "Invalid calibration data" });
       }
 
@@ -71,6 +113,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         scale,
         offsetX,
         offsetY,
+        rotation,
         status: "calibrated"
       });
 
@@ -181,7 +224,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 }
 
 // Simplified PDF generation function
-async function generatePDF(project: any): Promise<string> {
+async function generatePDF(project: MapProject): Promise<string> {
   const doc = new PDFDocument();
   const fileName = `pdf_${project.id}.pdf`;
   const filePath = path.join('uploads', fileName);
@@ -192,12 +235,12 @@ async function generatePDF(project: any): Promise<string> {
   const base64Data = project.originalImageUrl.split(',')[1];
   const imageBuffer = Buffer.from(base64Data, 'base64');
   
-  // Get image dimensions
-  const metadata = await sharp(imageBuffer).metadata();
-  const { width = 800, height = 600 } = metadata;
+  // Use stored image dimensions from the project
+  const width = project.imageWidth;
+  const height = project.imageHeight;
   
   // Calculate pages based on paper size and scale
-  const settings = project.settings;
+  const settings = project.settings as any; // TODO: Improve typing for jsonb settings
   const paperSizes: Record<string, { width: number; height: number }> = {
     a4: { width: 595, height: 842 },
     a3: { width: 842, height: 1191 },

@@ -7,10 +7,13 @@ export const mapProjects = pgTable("map_projects", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   fileName: text("file_name").notNull(),
   originalImageUrl: text("original_image_url").notNull(),
+  imageWidth: real("image_width").notNull(),
+  imageHeight: real("image_height").notNull(),
   settings: jsonb("settings").notNull(),
   scale: real("scale").notNull().default(1),
   offsetX: real("offset_x").notNull().default(0),
   offsetY: real("offset_y").notNull().default(0),
+  rotation: real("rotation").notNull().default(0), // rotation in degrees
   pdfUrl: text("pdf_url"),
   status: text("status").notNull().default("uploaded"), // uploaded, calibrated, processing, completed
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),

@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { MapProject } from "@/types/map";
+import { calculateGridLayout } from "@/lib/pdf-generator";
 import { Check, Download, Plus, Eye, FileText } from "lucide-react";
 
 interface SuccessStateProps {
@@ -10,6 +11,39 @@ interface SuccessStateProps {
 }
 
 export default function SuccessState({ project, onStartNew, onPreview }: SuccessStateProps) {
+  // Calculate actual page count and file info
+  const getFileInfo = () => {
+    const imageWidth = project.imageWidth;
+    const imageHeight = project.imageHeight;
+    
+    const gridLayout = calculateGridLayout(
+      imageWidth,
+      imageHeight,
+      project.scale,
+      project.settings.paperSize
+    );
+    
+    let totalPages = gridLayout.totalPages;
+    
+    // Add backside pages if enabled
+    if (project.settings.generateBacksideNumbers) {
+      totalPages += gridLayout.totalPages;
+    }
+    
+    // Add assembly guide page
+    totalPages += 1;
+    
+    // Estimate file size (rough calculation)
+    const estimatedSizeMB = Math.round((totalPages * 0.5) * 10) / 10; // ~0.5MB per page
+    
+    return {
+      pageCount: totalPages,
+      fileSize: `${estimatedSizeMB} MB`
+    };
+  };
+
+  const fileInfo = getFileInfo();
+
   const handleDownload = async () => {
     try {
       const response = await fetch(`/api/maps/${project.id}/download`);
@@ -57,7 +91,7 @@ export default function SuccessState({ project, onStartNew, onPreview }: Success
                     {project.fileName.replace(/\.[^/.]+$/, "")}_printable.pdf
                   </p>
                   <p className="text-sm text-muted-foreground" data-testid="text-file-info">
-                    24 pages • 8.5 MB
+                    {fileInfo.pageCount} pages • {fileInfo.fileSize}
                   </p>
                 </div>
               </div>

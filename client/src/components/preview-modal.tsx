@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MapProject } from "@/types/map";
+import { calculateGridLayout, PAPER_SIZES } from "@/lib/pdf-generator";
 import { X, Map } from "lucide-react";
 
 interface PreviewModalProps {
@@ -9,10 +10,23 @@ interface PreviewModalProps {
 }
 
 export default function PreviewModal({ project, onClose }: PreviewModalProps) {
-  // Generate mock page previews based on project settings
+  // Calculate actual page count based on project dimensions and settings
   const generatePreviewPages = () => {
     const pages = [];
-    const pageCount = 24; // This would be calculated based on actual map dimensions
+    
+    // Estimate image dimensions (in a real implementation, this would come from the uploaded image metadata)
+    const imageWidth = 800; // This should come from actual image metadata
+    const imageHeight = 600; // This should come from actual image metadata
+    
+    // Calculate grid layout using the same logic as PDF generation
+    const gridLayout = calculateGridLayout(
+      imageWidth,
+      imageHeight,
+      project.scale,
+      project.settings.paperSize
+    );
+    
+    const pageCount = gridLayout.totalPages;
     
     for (let i = 1; i <= pageCount; i++) {
       pages.push({

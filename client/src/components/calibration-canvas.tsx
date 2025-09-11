@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { MapProject, CalibrationData } from "@/types/map";
-import { Crosshair, X } from "lucide-react";
+import { Crosshair, X, RotateCw, RotateCcw } from "lucide-react";
 
 interface CalibrationCanvasProps {
   project: MapProject;
@@ -20,6 +20,7 @@ export default function CalibrationCanvas({
   const [scale, setScale] = useState(project.scale);
   const [offsetX, setOffsetX] = useState(project.offsetX);
   const [offsetY, setOffsetY] = useState(project.offsetY);
+  const [rotation, setRotation] = useState(project.rotation || 0);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [cursorGuide, setCursorGuide] = useState({ x: 0, y: 0, visible: false });
@@ -115,12 +116,17 @@ export default function CalibrationCanvas({
     calibrationMutation.mutate({
       scale,
       offsetX,
-      offsetY
+      offsetY,
+      rotation
     });
   };
 
+  const handleRotate = (degrees: number) => {
+    setRotation(prev => (prev + degrees) % 360);
+  };
+
   const imageStyle = {
-    transform: `translate(-50%, -50%) translate(${offsetX}px, ${offsetY}px) scale(${scale})`,
+    transform: `translate(-50%, -50%) translate(${offsetX}px, ${offsetY}px) scale(${scale}) rotate(${rotation}deg)`,
     transformOrigin: 'center',
   };
 
@@ -133,14 +139,19 @@ export default function CalibrationCanvas({
   return (
     <div className="h-full">
       {/* Instructions Banner */}
-      <div className="absolute top-0 left-0 right-0 bg-primary text-primary-foreground p-4 z-40">
+      <div className={`absolute top-0 left-0 right-0 p-4 z-40 ${project.status === 'calibrated' ? 'bg-green-600' : 'bg-primary'} text-primary-foreground`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <Crosshair className="h-5 w-5" />
             <div>
-              <p className="font-medium" data-testid="text-calibration-title">Scale Calibration</p>
+              <p className="font-medium" data-testid="text-calibration-title">
+                {project.status === 'calibrated' ? '✓ Calibration Complete' : 'Scale Calibration'}
+              </p>
               <p className="text-sm opacity-90" data-testid="text-calibration-instructions">
-                Use mouse wheel to zoom, right-click to pan. Align the blue guide with your map's grid, then left-click to confirm.
+                {project.status === 'calibrated' 
+                  ? 'Scale saved! Click "Generate PDF" in the header to create your printable map.'
+                  : 'Use mouse wheel to zoom, right-click to pan. Align the blue guide with your map\'s grid, then left-click to confirm.'
+                }
               </p>
             </div>
           </div>
@@ -148,6 +159,29 @@ export default function CalibrationCanvas({
             <span className="text-sm opacity-90" data-testid="text-zoom-level">
               Zoom: {zoomLevel}%
             </span>
+            <span className="text-sm opacity-90" data-testid="text-rotation-level">
+              Rotation: {rotation}°
+            </span>
+            <div className="flex space-x-1">
+              <Button 
+                variant="secondary"
+                size="sm"
+                onClick={() => handleRotate(-90)}
+                className="bg-primary-foreground/20 hover:bg-primary-foreground/30"
+                data-testid="button-rotate-left"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="secondary"
+                size="sm"
+                onClick={() => handleRotate(90)}
+                className="bg-primary-foreground/20 hover:bg-primary-foreground/30"
+                data-testid="button-rotate-right"
+              >
+                <RotateCw className="h-4 w-4" />
+              </Button>
+            </div>
             <Button 
               variant="secondary"
               size="sm"

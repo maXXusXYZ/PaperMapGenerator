@@ -24,7 +24,7 @@ export default function Home() {
 
   const handleCalibrationComplete = (project: MapProject) => {
     setCurrentProject(project);
-    setAppState('processing');
+    // Stay in calibration state - user must manually trigger PDF generation
   };
 
   const handleProcessingComplete = (project: MapProject) => {
@@ -43,6 +43,12 @@ export default function Home() {
         ...currentProject,
         settings
       });
+    }
+  };
+
+  const handleGeneratePDF = async () => {
+    if (currentProject && currentProject.status === 'calibrated') {
+      setAppState('processing');
     }
   };
 
@@ -70,7 +76,8 @@ export default function Home() {
           </Button>
           <Button 
             size="sm"
-            disabled={appState !== 'calibration' || !currentProject}
+            disabled={!currentProject || appState !== 'calibration' || currentProject.status !== 'calibrated'}
+            onClick={handleGeneratePDF}
             data-testid="button-generate-pdf"
           >
             <Download className="mr-2 h-4 w-4" />
@@ -92,7 +99,8 @@ export default function Home() {
                   ...currentProject,
                   scale: 1,
                   offsetX: 0,
-                  offsetY: 0
+                  offsetY: 0,
+                  rotation: 0
                 });
               }
             }}

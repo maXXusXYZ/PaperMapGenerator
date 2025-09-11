@@ -2,10 +2,13 @@ export interface MapProject {
   id: string;
   fileName: string;
   originalImageUrl: string;
+  imageWidth: number;
+  imageHeight: number;
   settings: MapSettings;
   scale: number;
   offsetX: number;
   offsetY: number;
+  rotation: number;
   pdfUrl?: string;
   status: 'uploaded' | 'calibrated' | 'processing' | 'completed';
   createdAt: string;
@@ -30,4 +33,5 @@ export interface CalibrationData {
   scale: number;
   offsetX: number;
   offsetY: number;
+  rotation: number;
 }

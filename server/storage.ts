@@ -24,9 +24,12 @@ export class MemStorage implements IStorage {
     const project: MapProject = { 
       ...insertProject, 
       id,
+      imageWidth: insertProject.imageWidth,
+      imageHeight: insertProject.imageHeight,
       scale: insertProject.scale ?? 1,
       offsetX: insertProject.offsetX ?? 0,
       offsetY: insertProject.offsetY ?? 0,
+      rotation: insertProject.rotation ?? 0,
       status: insertProject.status ?? "uploaded",
       pdfUrl: insertProject.pdfUrl ?? null,
       createdAt: new Date().toISOString()
