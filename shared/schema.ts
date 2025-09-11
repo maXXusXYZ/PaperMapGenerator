@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, real, boolean, jsonb } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
+import { pgTable, text, varchar, real, boolean, jsonb, integer, timestamp } from "drizzle-orm/pg-core";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const mapProjects = pgTable("map_projects", {
@@ -44,3 +44,27 @@ export const mapSettingsSchema = z.object({
 });
 
 export type MapSettings = z.infer<typeof mapSettingsSchema>;
+
+// Batch Job Schema
+export const batchJobs = pgTable('batch_jobs', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  status: text('status', { enum: ['pending', 'running', 'completed', 'failed'] }).notNull().default('pending'),
+  totalFiles: integer('total_files').notNull(),
+  processedFiles: integer('processed_files').notNull().default(0),
+  failedFiles: integer('failed_files').notNull().default(0),
+  projectIds: text('project_ids').array().notNull(),
+  settings: jsonb('settings').$type<MapSettings>().notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  errorMessage: text('error_message'),
+});
+
+export const insertBatchJobSchema = createInsertSchema(batchJobs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const batchJobSelectSchema = createSelectSchema(batchJobs);
+export type BatchJob = typeof batchJobs.$inferSelect;
+export type InsertBatchJob = z.infer<typeof insertBatchJobSchema>;

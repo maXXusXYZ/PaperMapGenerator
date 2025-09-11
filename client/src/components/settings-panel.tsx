@@ -17,13 +17,17 @@ interface SettingsPanelProps {
   onSettingsUpdate: (settings: MapSettings) => void;
   onReplaceMap: () => void;
   onResetMap: () => void;
+  batchMode?: boolean;
+  settings?: MapSettings;
 }
 
 export default function SettingsPanel({ 
   project, 
   onSettingsUpdate, 
   onReplaceMap, 
-  onResetMap 
+  onResetMap,
+  batchMode = false,
+  settings: externalSettings
 }: SettingsPanelProps) {
   const [settings, setSettings] = useState<MapSettings>({
     gridStyle: 'square',
@@ -43,10 +47,12 @@ export default function SettingsPanel({
   const { toast } = useToast();
 
   useEffect(() => {
-    if (project) {
+    if (batchMode && externalSettings) {
+      setSettings(externalSettings);
+    } else if (project) {
       setSettings(project.settings);
     }
-  }, [project]);
+  }, [project, batchMode, externalSettings]);
 
   const updateSettingsMutation = useMutation({
     mutationFn: async (newSettings: MapSettings) => {
@@ -81,7 +87,11 @@ export default function SettingsPanel({
     const newSettings = { ...settings, [key]: value };
     setSettings(newSettings);
     
-    if (project) {
+    if (batchMode) {
+      // In batch mode, immediately call the parent callback
+      onSettingsUpdate(newSettings);
+    } else if (project) {
+      // Normal mode: update via API
       updateSettingsMutation.mutate(newSettings);
     }
   };

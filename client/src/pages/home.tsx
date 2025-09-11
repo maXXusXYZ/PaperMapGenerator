@@ -6,6 +6,7 @@ import CalibrationCanvas from "@/components/calibration-canvas";
 import ProcessingState from "@/components/processing-state";
 import SuccessState from "@/components/success-state";
 import PreviewModal from "@/components/preview-modal";
+import Navigation from "@/components/navigation";
 import { MapProject, MapSettings } from "@/types/map";
 import { MapIcon, HelpCircle, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";

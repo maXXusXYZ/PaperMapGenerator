@@ -29,6 +29,7 @@ export interface MapSettings {
   outlineColor: string;
 }
 
+
 export interface CalibrationData {
   scale: number;
   offsetX: number;

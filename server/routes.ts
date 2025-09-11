@@ -4,7 +4,7 @@ import multer from "multer";
 import path from "path";
 import { promises as fs } from "fs";
 import { storage } from "./storage";
-import { insertMapProjectSchema, mapSettingsSchema, type MapProject } from "@shared/schema";
+import { insertMapProjectSchema, mapSettingsSchema, insertBatchJobSchema, type MapProject, type BatchJob } from "@shared/schema";
 import sharp from "sharp";
 import PDFDocument from "pdfkit";
 
@@ -219,6 +219,155 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Batch processing routes
+  // Create batch job
+  app.post("/api/batch", upload.array('mapImages', 20), async (req, res) => {
+    try {
+      const files = req.files as Express.Multer.File[];
+      if (!files || files.length === 0) {
+        return res.status(400).json({ error: "No files uploaded" });
+      }
+
+      const settings = mapSettingsSchema.parse(req.body.settings ? JSON.parse(req.body.settings) : {});
+      const jobName = req.body.jobName || `Batch Job ${new Date().toISOString()}`;
+
+      // Create projects for each uploaded file
+      const projectIds: string[] = [];
+      
+      for (const file of files) {
+        try {
+          const fileBuffer = await fs.readFile(file.path);
+          const metadata = await sharp(fileBuffer).metadata();
+          
+          if (!metadata.width || !metadata.height) {
+            await fs.unlink(file.path);
+            continue; // Skip invalid files
+          }
+          
+          const base64Image = `data:${file.mimetype};base64,${fileBuffer.toString('base64')}`;
+          
+          const project = await storage.createMapProject({
+            fileName: file.originalname,
+            originalImageUrl: base64Image,
+            imageWidth: metadata.width,
+            imageHeight: metadata.height,
+            settings,
+            scale: 1,
+            offsetX: 0,
+            offsetY: 0,
+            rotation: 0,
+            status: "uploaded"
+          });
+
+          projectIds.push(project.id);
+          await fs.unlink(file.path);
+        } catch (error) {
+          console.error(`Error processing file ${file.originalname}:`, error);
+          await fs.unlink(file.path);
+        }
+      }
+
+      if (projectIds.length === 0) {
+        return res.status(400).json({ error: "No valid files could be processed" });
+      }
+
+      // Create batch job
+      const batchJob = await storage.createBatchJob({
+        name: jobName,
+        totalFiles: projectIds.length,
+        processedFiles: 0,
+        failedFiles: 0,
+        projectIds,
+        settings,
+        status: "pending"
+      });
+
+      res.json(batchJob);
+    } catch (error) {
+      console.error("Batch upload error:", error);
+      res.status(500).json({ error: "Failed to create batch job" });
+    }
+  });
+
+  // Get batch job status
+  app.get("/api/batch/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const batchJob = await storage.getBatchJob(id);
+
+      if (!batchJob) {
+        return res.status(404).json({ error: "Batch job not found" });
+      }
+
+      res.json(batchJob);
+    } catch (error) {
+      console.error("Get batch job error:", error);
+      res.status(500).json({ error: "Failed to get batch job" });
+    }
+  });
+
+  // Get all batch jobs
+  app.get("/api/batch", async (req, res) => {
+    try {
+      const batchJobs = await storage.getAllBatchJobs();
+      res.json(batchJobs);
+    } catch (error) {
+      console.error("Get batch jobs error:", error);
+      res.status(500).json({ error: "Failed to get batch jobs" });
+    }
+  });
+
+  // Process batch job (start processing all maps in the batch)
+  app.post("/api/batch/:id/process", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const batchJob = await storage.getBatchJob(id);
+
+      if (!batchJob) {
+        return res.status(404).json({ error: "Batch job not found" });
+      }
+
+      if (batchJob.status !== "pending") {
+        return res.status(400).json({ error: "Batch job is not in pending status" });
+      }
+
+      // Update job status to running
+      await storage.updateBatchJob(id, { status: "running" });
+
+      // Process each project asynchronously
+      processBatchJob(id).catch(error => {
+        console.error(`Batch job ${id} processing failed:`, error);
+        storage.updateBatchJob(id, { 
+          status: "failed", 
+          errorMessage: error.message,
+          completedAt: new Date().toISOString()
+        });
+      });
+
+      res.json({ message: "Batch processing started" });
+    } catch (error) {
+      console.error("Process batch job error:", error);
+      res.status(500).json({ error: "Failed to process batch job" });
+    }
+  });
+
+  // Delete batch job
+  app.delete("/api/batch/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await storage.deleteBatchJob(id);
+
+      if (!success) {
+        return res.status(404).json({ error: "Batch job not found" });
+      }
+
+      res.json({ message: "Batch job deleted" });
+    } catch (error) {
+      console.error("Delete batch job error:", error);
+      res.status(500).json({ error: "Failed to delete batch job" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
@@ -341,4 +490,67 @@ async function generatePDF(project: MapProject): Promise<string> {
   doc.end();
   
   return filePath;
+}
+
+// Batch job processing function
+async function processBatchJob(batchJobId: string): Promise<void> {
+  const batchJob = await storage.getBatchJob(batchJobId);
+  if (!batchJob) {
+    throw new Error("Batch job not found");
+  }
+
+  let processedCount = 0;
+  let failedCount = 0;
+
+  for (const projectId of batchJob.projectIds) {
+    try {
+      const project = await storage.getMapProject(projectId);
+      if (!project) {
+        failedCount++;
+        continue;
+      }
+
+      // Update project status to processing
+      await storage.updateMapProject(projectId, { status: "processing" });
+
+      // Generate PDF for the project
+      const pdfPath = await generatePDF(project);
+      
+      // Update project with PDF URL and completed status
+      await storage.updateMapProject(projectId, {
+        pdfUrl: pdfPath,
+        status: "completed"
+      });
+
+      processedCount++;
+
+      // Update batch job progress
+      await storage.updateBatchJob(batchJobId, {
+        processedFiles: processedCount,
+        failedFiles: failedCount
+      });
+
+    } catch (error) {
+      console.error(`Error processing project ${projectId}:`, error);
+      failedCount++;
+      
+      // Update project status to failed
+      await storage.updateMapProject(projectId, { status: "uploaded" });
+      
+      // Update batch job progress
+      await storage.updateBatchJob(batchJobId, {
+        processedFiles: processedCount,
+        failedFiles: failedCount
+      });
+    }
+  }
+
+  // Mark batch job as completed
+  await storage.updateBatchJob(batchJobId, {
+    status: processedCount > 0 ? "completed" : "failed",
+    processedFiles: processedCount,
+    failedFiles: failedCount,
+    completedAt: new Date().toISOString(),
+    errorMessage: failedCount === batchJob.totalFiles ? "All files failed to process" : undefined
+  });
 }
