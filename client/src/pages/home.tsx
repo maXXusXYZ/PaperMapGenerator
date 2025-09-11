@@ -10,6 +10,7 @@ import Navigation from "@/components/navigation";
 import { MapProject, MapSettings } from "@/types/map";
 import { MapIcon, HelpCircle, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useSharedSettings } from "@/hooks/use-shared-settings";
 
 type AppState = 'upload' | 'calibration' | 'processing' | 'success';
 
@@ -17,9 +18,15 @@ export default function Home() {
   const [appState, setAppState] = useState<AppState>('upload');
   const [currentProject, setCurrentProject] = useState<MapProject | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const { settings: sharedSettings, updateSettings: updateSharedSettings } = useSharedSettings();
 
   const handleUploadComplete = (project: MapProject) => {
-    setCurrentProject(project);
+    // Initialize project with shared settings if available
+    const projectWithSettings = {
+      ...project,
+      settings: { ...sharedSettings, ...project.settings }
+    };
+    setCurrentProject(projectWithSettings);
     setAppState('calibration');
   };
 
@@ -39,6 +46,10 @@ export default function Home() {
   };
 
   const handleSettingsUpdate = (settings: MapSettings) => {
+    // Update shared settings in localStorage for batch mode
+    updateSharedSettings(settings);
+    
+    // Update current project settings
     if (currentProject) {
       setCurrentProject({
         ...currentProject,
@@ -105,6 +116,8 @@ export default function Home() {
                 });
               }
             }}
+            batchMode={false}
+            settings={currentProject?.settings || sharedSettings}
           />
         </aside>
 

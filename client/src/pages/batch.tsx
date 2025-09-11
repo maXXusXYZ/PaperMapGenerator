@@ -15,24 +15,12 @@ import type { MapSettings } from '@/types/map';
 import type { BatchJob } from '@shared/schema';
 import SettingsPanel from '@/components/settings-panel';
 import Navigation from '@/components/navigation';
+import { useSharedSettings } from '@/hooks/use-shared-settings';
 
 export default function BatchPage() {
   const [jobName, setJobName] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [batchSettings, setBatchSettings] = useState<MapSettings>({
-    gridStyle: 'square',
-    unitOfMeasurement: 'imperial',
-    paperSize: 'a4',
-    gridOverlay: false,
-    backgroundColor: '#ffffff',
-    averageBackgroundColor: false,
-    gridMarkerColor: '#ffffff',
-    guideColor: '#ffffff',
-    generateBacksideNumbers: true,
-    outlineStyle: 'dash',
-    outlineThickness: 3,
-    outlineColor: '#ffffff'
-  });
+  const { settings: batchSettings, updateSettings: setBatchSettings } = useSharedSettings();
 
   const { toast } = useToast();
 

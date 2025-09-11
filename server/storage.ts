@@ -1,4 +1,6 @@
-import { type MapProject, type InsertMapProject, type BatchJob, type InsertBatchJob } from "@shared/schema";
+import { type MapProject, type InsertMapProject, type BatchJob, type InsertBatchJob, mapProjects, batchJobs } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -13,6 +15,105 @@ export interface IStorage {
   updateBatchJob(id: string, updates: Partial<BatchJob>): Promise<BatchJob | undefined>;
   deleteBatchJob(id: string): Promise<boolean>;
   getAllBatchJobs(): Promise<BatchJob[]>;
+}
+
+export class DatabaseStorage implements IStorage {
+  async getMapProject(id: string): Promise<MapProject | undefined> {
+    try {
+      const [project] = await db.select().from(mapProjects).where(eq(mapProjects.id, id));
+      return project || undefined;
+    } catch (error) {
+      console.error('Error getting map project:', error);
+      return undefined;
+    }
+  }
+
+  async createMapProject(insertProject: InsertMapProject): Promise<MapProject> {
+    const [project] = await db
+      .insert(mapProjects)
+      .values(insertProject)
+      .returning();
+    return project;
+  }
+
+  async updateMapProject(id: string, updates: Partial<MapProject>): Promise<MapProject | undefined> {
+    try {
+      const [updated] = await db
+        .update(mapProjects)
+        .set(updates)
+        .where(eq(mapProjects.id, id))
+        .returning();
+      return updated || undefined;
+    } catch (error) {
+      console.error('Error updating map project:', error);
+      return undefined;
+    }
+  }
+
+  async deleteMapProject(id: string): Promise<boolean> {
+    try {
+      const result = await db.delete(mapProjects).where(eq(mapProjects.id, id));
+      return (result.rowCount || 0) > 0;
+    } catch (error) {
+      console.error('Error deleting map project:', error);
+      return false;
+    }
+  }
+
+  async getBatchJob(id: string): Promise<BatchJob | undefined> {
+    try {
+      const [job] = await db.select().from(batchJobs).where(eq(batchJobs.id, id));
+      return job || undefined;
+    } catch (error) {
+      console.error('Error getting batch job:', error);
+      return undefined;
+    }
+  }
+
+  async createBatchJob(insertJob: InsertBatchJob): Promise<BatchJob> {
+    const id = randomUUID();
+    const [job] = await db
+      .insert(batchJobs)
+      .values({
+        ...insertJob,
+        id
+      })
+      .returning();
+    return job;
+  }
+
+  async updateBatchJob(id: string, updates: Partial<BatchJob>): Promise<BatchJob | undefined> {
+    try {
+      const [updated] = await db
+        .update(batchJobs)
+        .set(updates)
+        .where(eq(batchJobs.id, id))
+        .returning();
+      return updated || undefined;
+    } catch (error) {
+      console.error('Error updating batch job:', error);
+      return undefined;
+    }
+  }
+
+  async deleteBatchJob(id: string): Promise<boolean> {
+    try {
+      const result = await db.delete(batchJobs).where(eq(batchJobs.id, id));
+      return (result.rowCount || 0) > 0;
+    } catch (error) {
+      console.error('Error deleting batch job:', error);
+      return false;
+    }
+  }
+
+  async getAllBatchJobs(): Promise<BatchJob[]> {
+    try {
+      return await db.select().from(batchJobs);
+    } catch (error) {
+      console.error('Error getting all batch jobs:', error);
+      return [];
+    }
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -70,7 +171,7 @@ export class MemStorage implements IStorage {
     const job: BatchJob = {
       ...insertJob,
       id,
-      createdAt: new Date().toISOString(),
+      createdAt: new Date() as any,
       completedAt: null,
       errorMessage: null
     };
@@ -96,4 +197,4 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

@@ -340,7 +340,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         storage.updateBatchJob(id, { 
           status: "failed", 
           errorMessage: error.message,
-          completedAt: new Date().toISOString()
+          completedAt: new Date()
         });
       });
 
@@ -568,7 +568,7 @@ async function processBatchJob(batchJobId: string): Promise<void> {
     status: processedCount > 0 ? "completed" : "failed",
     processedFiles: processedCount,
     failedFiles: failedCount,
-    completedAt: new Date().toISOString(),
+    completedAt: new Date(),
     errorMessage: failedCount === batchJob.totalFiles ? "All files failed to process" : undefined
   });
 }

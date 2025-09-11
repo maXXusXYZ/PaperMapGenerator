@@ -217,6 +217,40 @@ export default function CalibrationCanvas({
             style={imageStyle}
             data-testid="calibration-map-image"
           />
+
+          {/* Grid Overlay */}
+          {project.settings.gridOverlay && (
+            <svg
+              className="absolute top-0 left-0 w-full h-full pointer-events-none z-20"
+              style={{
+                transform: `translate(${offsetX}px, ${offsetY}px) scale(${scale})`,
+                transformOrigin: 'center',
+              }}
+              data-testid="grid-overlay"
+            >
+              <defs>
+                <pattern 
+                  id="grid" 
+                  width="40" 
+                  height="40" 
+                  patternUnits="userSpaceOnUse"
+                >
+                  <path 
+                    d="M 40 0 L 0 0 0 40" 
+                    fill="none" 
+                    stroke={project.settings.gridMarkerColor || '#ffffff'} 
+                    strokeWidth="1"
+                    opacity="0.6"
+                  />
+                </pattern>
+              </defs>
+              <rect 
+                width="100%" 
+                height="100%" 
+                fill="url(#grid)" 
+              />
+            </svg>
+          )}
           
           {/* Cursor Guide Overlay */}
           <div 

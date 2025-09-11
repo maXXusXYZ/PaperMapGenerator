@@ -51,6 +51,9 @@ export default function SettingsPanel({
       setSettings(externalSettings);
     } else if (project) {
       setSettings(project.settings);
+    } else if (externalSettings) {
+      // Use external settings when no project (for shared settings on single-map page)
+      setSettings(externalSettings);
     }
   }, [project, batchMode, externalSettings]);
 
@@ -87,11 +90,13 @@ export default function SettingsPanel({
     const newSettings = { ...settings, [key]: value };
     setSettings(newSettings);
     
+    // Always call parent callback immediately for localStorage persistence
+    onSettingsUpdate(newSettings);
+    
     if (batchMode) {
-      // In batch mode, immediately call the parent callback
-      onSettingsUpdate(newSettings);
+      // In batch mode, we're done - parent handles localStorage
     } else if (project) {
-      // Normal mode: update via API
+      // Normal mode: also update via API for database persistence
       updateSettingsMutation.mutate(newSettings);
     }
   };
@@ -219,8 +224,9 @@ export default function SettingsPanel({
                   type="text" 
                   value={settings.backgroundColor.toUpperCase()}
                   onChange={(e) => {
-                    if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
-                      handleSettingChange('backgroundColor', e.target.value);
+                    const value = e.target.value.startsWith('#') ? e.target.value : `#${e.target.value}`;
+                    if (/^#[0-9A-F]{6}$/i.test(value)) {
+                      handleSettingChange('backgroundColor', value);
                     }
                   }}
                   className="flex-1"
@@ -266,8 +272,9 @@ export default function SettingsPanel({
                   type="text" 
                   value={settings.gridMarkerColor.toUpperCase()}
                   onChange={(e) => {
-                    if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
-                      handleSettingChange('gridMarkerColor', e.target.value);
+                    const value = e.target.value.startsWith('#') ? e.target.value : `#${e.target.value}`;
+                    if (/^#[0-9A-F]{6}$/i.test(value)) {
+                      handleSettingChange('gridMarkerColor', value);
                     }
                   }}
                   className="flex-1"
@@ -294,8 +301,9 @@ export default function SettingsPanel({
                   type="text" 
                   value={settings.guideColor.toUpperCase()}
                   onChange={(e) => {
-                    if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
-                      handleSettingChange('guideColor', e.target.value);
+                    const value = e.target.value.startsWith('#') ? e.target.value : `#${e.target.value}`;
+                    if (/^#[0-9A-F]{6}$/i.test(value)) {
+                      handleSettingChange('guideColor', value);
                     }
                   }}
                   className="flex-1"
@@ -376,8 +384,9 @@ export default function SettingsPanel({
                   type="text" 
                   value={settings.outlineColor.toUpperCase()}
                   onChange={(e) => {
-                    if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
-                      handleSettingChange('outlineColor', e.target.value);
+                    const value = e.target.value.startsWith('#') ? e.target.value : `#${e.target.value}`;
+                    if (/^#[0-9A-F]{6}$/i.test(value)) {
+                      handleSettingChange('outlineColor', value);
                     }
                   }}
                   className="flex-1"
