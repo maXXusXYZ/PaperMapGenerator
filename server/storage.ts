@@ -74,10 +74,7 @@ export class DatabaseStorage implements IStorage {
     const id = randomUUID();
     const [job] = await db
       .insert(batchJobs)
-      .values({
-        ...insertJob,
-        id
-      })
+      .values({ ...insertJob, id })
       .returning();
     return job;
   }
@@ -171,10 +168,10 @@ export class MemStorage implements IStorage {
     const job: BatchJob = {
       ...insertJob,
       id,
-      createdAt: new Date() as any,
+      createdAt: new Date(),
       completedAt: null,
       errorMessage: null
-    };
+    } as BatchJob;
     this.batchJobs.set(id, job);
     return job;
   }
