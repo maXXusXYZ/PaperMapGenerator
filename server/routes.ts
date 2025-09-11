@@ -374,11 +374,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 // Simplified PDF generation function
 async function generatePDF(project: MapProject): Promise<string> {
-  const doc = new PDFDocument();
-  const fileName = `pdf_${project.id}.pdf`;
-  const filePath = path.join('uploads', fileName);
-  
-  doc.pipe(require('fs').createWriteStream(filePath));
+  try {
+    const doc = new PDFDocument();
+    const fileName = `pdf_${project.id}.pdf`;
+    const filePath = path.join('uploads', fileName);
+    
+    // Ensure uploads directory exists
+    await fs.mkdir('uploads', { recursive: true });
+    
+    // Create a promise to wait for the PDF to finish writing
+    const pdfPromise = new Promise<void>((resolve, reject) => {
+      const writeStream = require('fs').createWriteStream(filePath);
+      writeStream.on('finish', resolve);
+      writeStream.on('error', reject);
+      doc.pipe(writeStream);
+    });
   
   // Extract image data from base64
   const base64Data = project.originalImageUrl.split(',')[1];
@@ -450,8 +460,9 @@ async function generatePDF(project: MapProject): Promise<string> {
           
           doc.rect(10, 10, paperSize.width - 20, paperSize.height - 20).stroke();
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error processing image crop:', err);
+        throw new Error(`Failed to process image crop at position (${x}, ${y}): ${err?.message || 'Unknown error'}`);
       }
       
       // Add backside numbering page if enabled
@@ -487,9 +498,16 @@ async function generatePDF(project: MapProject): Promise<string> {
     }
   }
   
-  doc.end();
-  
-  return filePath;
+    doc.end();
+    
+    // Wait for the PDF to finish writing
+    await pdfPromise;
+    
+    return filePath;
+  } catch (error: any) {
+    console.error('PDF generation error:', error);
+    throw new Error(`Failed to generate PDF for project ${project.id}: ${error?.message || 'Unknown error'}`);
+  }
 }
 
 // Batch job processing function
