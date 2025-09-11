@@ -1,0 +1,63 @@
+This document refines the initial PRD based on a visual analysis of the "Paper Map Generator" demonstration video.
+
+1. Key Workflow & Interaction Design Insights
+The video reveals a highly intuitive, multi-step workflow that should be replicated.
+
+Step 1: Pre-Configuration (Optional)
+
+The user can access a comprehensive Settings panel before uploading a map to pre-set their preferences. These settings persist and are applied to the uploaded map.
+Step 2: Map Upload
+
+The primary call-to-action is a "Choose file" button. The user selects a local image file.
+Step 3: Interactive Scaling & Calibration (Critical UX Feature)
+
+Upon upload, the application transitions to a full-screen map view with the Settings panel docked to the left.
+The core interaction for setting the scale is visual and interactive, not numerical:
+A semi-transparent cursor guide (representing a single grid square, e.g., 1x1 inch) is displayed over the map, following the user's mouse.
+The user uses the mouse scroll wheel to zoom the map image in or out. The goal is to match the map's own grid lines perfectly with the edges of the cursor guide.
+The user can right-click and drag to pan the map around while scaling.
+Once the scale is correctly calibrated, the user left-clicks to confirm. This action locks in the scale and initiates the PDF generation.
+On-screen instructions should guide the user through this process.
+Step 4: PDF Generation & Download
+
+After the user confirms the scale, the application processes the map and automatically initiates a download for the generated PDF file. There is no intermediate "preview" screen after scaling is confirmed; the action directly leads to the final output.
+2. Detailed Feature & Settings Specification
+The Settings panel is the central control hub. The following specifications are derived directly from the UI shown in the video.
+
+Section	Setting	UI Element	Options / Behavior	Default Value
+Style	Grid Style	Dropdown	Square, Hexagon, Isometric, Universal	Square
+Unit of Measurement	Dropdown	Imperial, Metric	Imperial
+Paper Size	Dropdown	A0-A10, Legal, Letter, Tabloid	A4
+Grid Overlay	Toggle Switch	Toggles the visibility of the grid lines on the final PDF.	Off
+Background	Background Color	Color Picker	Sets the color for any blank margin space around the map on a page.	White
+Average Background Color	Toggle Switch	If enabled, automatically samples the average color from the map's edges and uses it as the background color for a seamless look.	Off
+Guides	Grid Marker Color	Color Picker	Sets the color of the grid markers/dots.	White
+Guide Color	Color Picker	Sets the color of the grid lines themselves.	White
+Generate Backside Numbers	Toggle Switch	If enabled, interleaves blank pages with centered page numbers for easy double-sided printing.	On
+Outline	Outline Style	Dropdown	Sets the style of the cut lines (e.g., Dash, Solid, Dotted).	Dash
+Outline Thickness	Slider	Adjusts the thickness of the cut lines.	~25%
+Outline Color	Color Picker	Sets the color of the cut lines.	White
+Map Controls	Replace Map	Button	Allows the user to upload a different map without refreshing the page.	N/A
+Reset Map	Button	Resets all scaling and positioning for the current map.	N/A
+3. PDF Output Structure Specification
+The structure of the final PDF is critical for usability.
+
+Page Slicing: The map is sliced into multiple pages based on the selected paper size and scale.
+Backside Numbering: When "Generate backside numbers" is enabled, the PDF is structured as follows:
+Page 1: Map Slice 1
+Page 2: A mostly blank page with the number "1" and a small logo.
+Page 3: Map Slice 2
+Page 4: A blank page with the number "2".
+...and so on.
+This layout is optimized for printers with duplex (double-sided) printing capabilities.
+Assembly Guide:
+The very last page of the PDF must be an assembly guide.
+This guide displays a miniature, complete version of the original map.
+A grid is overlaid on this miniature map, with each cell containing the corresponding page number. This allows the user to see exactly how the printed pages fit together.
+Cut Lines: Each map slice page includes a clear but unobtrusive outline (e.g., a dashed line) showing the user precisely where to cut to remove the printer's unprintable margins.
+4. Updated Requirements Summary
+Based on this visual analysis, the original PRD should be updated with the following clarifications:
+
+Requirement UI-02 (Live Preview) should be implemented specifically as the "Interactive Scaling & Calibration" workflow described in Section 1. This is a more refined and user-friendly approach than a simple static preview.
+Requirement DIFF-03 (Assembly Assistance) is more specifically defined as the combination of (a) Optional Backside Numbering for double-sided printing and (b) a mandatory final-page Assembly Guide.
+The feature set for Settings should be expanded to include all the detailed options from the table in Section 2, such as multiple grid styles, outline controls, and the clever "Average Background Color" feature.
