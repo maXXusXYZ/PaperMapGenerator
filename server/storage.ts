@@ -1,4 +1,4 @@
-import { type MapProject, type InsertMapProject, type BatchJob, type InsertBatchJob, mapProjects, batchJobs } from "@shared/schema";
+import { type MapProject, type InsertMapProject, type BatchJob, type InsertBatchJob, mapProjects, batchJobs, mapSettingsSchema } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -72,9 +72,23 @@ export class DatabaseStorage implements IStorage {
 
   async createBatchJob(insertJob: InsertBatchJob): Promise<BatchJob> {
     const id = randomUUID();
+    // Validate settings to ensure proper types
+    const validatedSettings = mapSettingsSchema.parse(insertJob.settings);
+    
     const [job] = await db
       .insert(batchJobs)
-      .values({ ...insertJob, id })
+      .values({ 
+        id,
+        name: insertJob.name,
+        status: insertJob.status,
+        totalFiles: insertJob.totalFiles,
+        processedFiles: insertJob.processedFiles || 0,
+        failedFiles: insertJob.failedFiles || 0,
+        projectIds: insertJob.projectIds,
+        settings: validatedSettings,
+        completedAt: insertJob.completedAt,
+        errorMessage: insertJob.errorMessage
+      })
       .returning();
     return job;
   }

@@ -2,7 +2,7 @@ import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
 import path from "path";
-import { promises as fs } from "fs";
+import { promises as fs, createWriteStream } from "fs";
 import { storage } from "./storage";
 import { insertMapProjectSchema, mapSettingsSchema, insertBatchJobSchema, type MapProject, type BatchJob } from "@shared/schema";
 import sharp from "sharp";
@@ -384,7 +384,7 @@ async function generatePDF(project: MapProject): Promise<string> {
     
     // Create a promise to wait for the PDF to finish writing
     const pdfPromise = new Promise<void>((resolve, reject) => {
-      const writeStream = require('fs').createWriteStream(filePath);
+      const writeStream = createWriteStream(filePath);
       writeStream.on('finish', resolve);
       writeStream.on('error', reject);
       doc.pipe(writeStream);
