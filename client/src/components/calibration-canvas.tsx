@@ -125,6 +125,73 @@ export default function CalibrationCanvas({
     setRotation(prev => (prev + degrees) % 360);
   };
 
+  // Calculate grid size based on scale (assuming 1 inch grid squares)
+  const getGridSize = (currentScale: number) => {
+    const baseGridSize = 72; // 72 pixels = 1 inch at 72 DPI
+    return baseGridSize * currentScale;
+  };
+
+  // Render different grid patterns
+  const renderGridPattern = (gridStyle: string, color: string, size: number) => {
+    switch (gridStyle) {
+      case 'square':
+        return (
+          <path 
+            d={`M ${size} 0 L 0 0 0 ${size}`} 
+            fill="none" 
+            stroke={color} 
+            strokeWidth="1"
+            opacity="0.7"
+          />
+        );
+      case 'hexagon':
+        const hexRadius = size / 2;
+        const hexHeight = size * Math.sqrt(3) / 2;
+        const points = [];
+        for (let i = 0; i < 6; i++) {
+          const angle = (i * 60) * Math.PI / 180;
+          const x = size/2 + hexRadius * Math.cos(angle);
+          const y = size/2 + hexRadius * Math.sin(angle);
+          points.push(`${x},${y}`);
+        }
+        return (
+          <polygon
+            points={points.join(' ')}
+            fill="none"
+            stroke={color}
+            strokeWidth="1"
+            opacity="0.7"
+          />
+        );
+      case 'isometric':
+        return (
+          <g>
+            <path d={`M ${size} 0 L 0 0 0 ${size}`} fill="none" stroke={color} strokeWidth="1" opacity="0.7" />
+            <path d={`M 0 0 L ${size/2} ${size/2}`} fill="none" stroke={color} strokeWidth="1" opacity="0.5" />
+            <path d={`M ${size} 0 L ${size/2} ${size/2}`} fill="none" stroke={color} strokeWidth="1" opacity="0.5" />
+          </g>
+        );
+      case 'universal':
+        return (
+          <g>
+            <path d={`M ${size} 0 L 0 0 0 ${size}`} fill="none" stroke={color} strokeWidth="1" opacity="0.7" />
+            <path d={`M 0 0 L ${size} ${size}`} fill="none" stroke={color} strokeWidth="0.5" opacity="0.4" />
+            <path d={`M ${size} 0 L 0 ${size}`} fill="none" stroke={color} strokeWidth="0.5" opacity="0.4" />
+          </g>
+        );
+      default:
+        return (
+          <path 
+            d={`M ${size} 0 L 0 0 0 ${size}`} 
+            fill="none" 
+            stroke={color} 
+            strokeWidth="1"
+            opacity="0.7"
+          />
+        );
+    }
+  };
+
   const imageStyle = {
     transform: `translate(-50%, -50%) translate(${offsetX}px, ${offsetY}px) scale(${scale}) rotate(${rotation}deg)`,
     transformOrigin: 'center',
@@ -221,32 +288,28 @@ export default function CalibrationCanvas({
           {/* Grid Overlay */}
           {project.settings.gridOverlay && (
             <svg
-              className="absolute top-0 left-0 w-full h-full pointer-events-none z-20"
+              className="absolute top-1/2 left-1/2 pointer-events-none z-20"
               style={{
-                transform: `translate(${offsetX}px, ${offsetY}px) scale(${scale})`,
+                transform: `translate(-50%, -50%) translate(${offsetX}px, ${offsetY}px) scale(${scale}) rotate(${rotation}deg)`,
                 transformOrigin: 'center',
+                width: project.imageWidth,
+                height: project.imageHeight,
               }}
               data-testid="grid-overlay"
             >
               <defs>
                 <pattern 
                   id="grid" 
-                  width="40" 
-                  height="40" 
+                  width={getGridSize(scale)}
+                  height={getGridSize(scale)}
                   patternUnits="userSpaceOnUse"
                 >
-                  <path 
-                    d="M 40 0 L 0 0 0 40" 
-                    fill="none" 
-                    stroke={project.settings.gridMarkerColor || '#ffffff'} 
-                    strokeWidth="1"
-                    opacity="0.6"
-                  />
+                  {renderGridPattern(project.settings.gridStyle, project.settings.gridMarkerColor, getGridSize(scale))}
                 </pattern>
               </defs>
               <rect 
-                width="100%" 
-                height="100%" 
+                width={project.imageWidth} 
+                height={project.imageHeight} 
                 fill="url(#grid)" 
               />
             </svg>
@@ -254,8 +317,12 @@ export default function CalibrationCanvas({
           
           {/* Cursor Guide Overlay */}
           <div 
-            className="absolute pointer-events-none border-2 border-dashed border-primary bg-primary/10 w-10 h-10 z-10 rounded"
-            style={cursorGuideStyle}
+            className="absolute pointer-events-none w-10 h-10 z-10 rounded border-2 border-dashed"
+            style={{
+              ...cursorGuideStyle,
+              borderColor: project.settings.guideColor,
+              backgroundColor: `${project.settings.guideColor}20` // 20 for 12.5% opacity
+            }}
             data-testid="cursor-guide"
           />
         </div>

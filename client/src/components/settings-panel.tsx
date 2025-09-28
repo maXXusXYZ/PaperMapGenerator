@@ -36,12 +36,12 @@ export default function SettingsPanel({
     gridOverlay: false,
     backgroundColor: '#ffffff',
     averageBackgroundColor: false,
-    gridMarkerColor: '#ffffff',
-    guideColor: '#ffffff',
+    gridMarkerColor: '#000000',
+    guideColor: '#000000',
     generateBacksideNumbers: true,
     outlineStyle: 'dash',
     outlineThickness: 3,
-    outlineColor: '#ffffff',
+    outlineColor: '#000000',
   });
 
   const { toast } = useToast();

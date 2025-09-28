@@ -35,12 +35,12 @@ export const mapSettingsSchema = z.object({
   gridOverlay: z.boolean().default(false),
   backgroundColor: z.string().default("#ffffff"),
   averageBackgroundColor: z.boolean().default(false),
-  gridMarkerColor: z.string().default("#ffffff"),
-  guideColor: z.string().default("#ffffff"),
+  gridMarkerColor: z.string().default("#000000"),
+  guideColor: z.string().default("#000000"),
   generateBacksideNumbers: z.boolean().default(true),
   outlineStyle: z.enum(["dash", "solid", "dotted"]).default("dash"),
   outlineThickness: z.number().min(1).max(10).default(3),
-  outlineColor: z.string().default("#ffffff"),
+  outlineColor: z.string().default("#000000"),
 });
 
 export type MapSettings = z.infer<typeof mapSettingsSchema>;

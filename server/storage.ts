@@ -208,4 +208,14 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new DatabaseStorage();
+// Use MemStorage for development if no database URL is provided
+const isDevelopment = process.env.NODE_ENV === 'development';
+const hasDatabase = !!process.env.DATABASE_URL;
+
+export const storage = (isDevelopment && !hasDatabase) 
+  ? new MemStorage() 
+  : new DatabaseStorage();
+
+if (isDevelopment && !hasDatabase) {
+  console.log('📦 Using in-memory storage for development');
+}

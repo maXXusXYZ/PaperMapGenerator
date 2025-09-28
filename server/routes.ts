@@ -7,6 +7,10 @@ import { storage } from "./storage";
 import { insertMapProjectSchema, mapSettingsSchema, insertBatchJobSchema, type MapProject, type BatchJob } from "@shared/schema";
 import sharp from "sharp";
 import PDFDocument from "pdfkit";
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Define extended Request type for multer file uploads
 interface MulterRequest extends Request {
@@ -44,6 +48,32 @@ const upload = multer({
     }
   }
 });
+
+// Extract average background color from an image
+async function extractAverageColor(imageBuffer: Buffer): Promise<string> {
+  try {
+    // Resize to small image for faster processing and get stats
+    const { dominant } = await sharp(imageBuffer)
+      .resize(50, 50)
+      .stats();
+    
+    // Get the dominant color from the image
+    if (dominant.r !== undefined && dominant.g !== undefined && dominant.b !== undefined) {
+      const r = Math.round(dominant.r);
+      const g = Math.round(dominant.g);
+      const b = Math.round(dominant.b);
+      
+      // Convert RGB to hex
+      const toHex = (n: number) => n.toString(16).padStart(2, '0');
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    }
+    
+    return '#ffffff'; // Default fallback
+  } catch (error) {
+    console.error('Error extracting average color:', error);
+    return '#ffffff'; // Default fallback
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
@@ -423,6 +453,25 @@ async function generatePDF(project: MapProject): Promise<string> {
     for (let x = 0; x < pagesX; x++) {
       if (x > 0 || y > 0) doc.addPage();
       
+      // Add background color if specified
+      let backgroundColorToUse = settings.backgroundColor;
+      
+      // Use average background color if enabled
+      if (settings.averageBackgroundColor) {
+        try {
+          backgroundColorToUse = await extractAverageColor(imageBuffer);
+        } catch (error) {
+          console.error('Failed to extract average color, using manual setting:', error);
+        }
+      }
+      
+      if (backgroundColorToUse && backgroundColorToUse !== '#ffffff') {
+        doc.save();
+        doc.fillColor(backgroundColorToUse);
+        doc.rect(0, 0, paperSize.width, paperSize.height).fill();
+        doc.restore();
+      }
+      
       // Calculate crop area
       const cropX = (x * paperSize.width) / project.scale;
       const cropY = (y * paperSize.height) / project.scale;
@@ -447,6 +496,21 @@ async function generatePDF(project: MapProject): Promise<string> {
           height: cropHeight * project.scale
         });
         
+        // Add grid overlay if enabled
+        if (settings.gridOverlay) {
+          drawGridOverlay(doc, {
+            x: 0,
+            y: 0,
+            width: cropWidth * project.scale,
+            height: cropHeight * project.scale,
+            gridStyle: settings.gridStyle,
+            gridColor: settings.gridMarkerColor,
+            scale: project.scale,
+            offsetX: cropX,
+            offsetY: cropY
+          });
+        }
+        
         // Add cut lines if enabled
         if (settings.outlineStyle !== 'none') {
           doc.strokeColor(settings.outlineColor);
@@ -468,12 +532,7 @@ async function generatePDF(project: MapProject): Promise<string> {
       // Add backside numbering page if enabled
       if (settings.generateBacksideNumbers && (x < pagesX - 1 || y < pagesY - 1)) {
         doc.addPage();
-        const pageNumber = y * pagesX + x + 1;
-        doc.fontSize(72)
-           .fillColor('#000000')
-           .text(pageNumber.toString(), paperSize.width / 2 - 20, paperSize.height / 2 - 36, {
-             align: 'center'
-           });
+        await addBacksideNumbering(doc, paperSize, y * pagesX + x + 1);
       }
     }
   }
@@ -507,6 +566,254 @@ async function generatePDF(project: MapProject): Promise<string> {
   } catch (error: any) {
     console.error('PDF generation error:', error);
     throw new Error(`Failed to generate PDF for project ${project.id}: ${error?.message || 'Unknown error'}`);
+  }
+}
+
+// Grid overlay drawing function
+function drawGridOverlay(doc: PDFDocument, options: {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  gridStyle: string;
+  gridColor: string;
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+}) {
+  const { x, y, width, height, gridStyle, gridColor, scale, offsetX, offsetY } = options;
+  
+  // Calculate grid cell size (assuming 1 inch grid squares at 1:1 scale)
+  const baseGridSize = 72; // 72 points = 1 inch in PDF
+  const gridSize = baseGridSize * scale;
+  
+  // Set grid drawing properties
+  doc.save();
+  doc.strokeColor(gridColor);
+  doc.lineWidth(1);
+  doc.dash([], { phase: 0 }); // Solid lines for grid
+  
+  // Calculate grid offset based on crop position
+  const gridOffsetX = -(offsetX * scale) % gridSize;
+  const gridOffsetY = -(offsetY * scale) % gridSize;
+  
+  switch (gridStyle) {
+    case 'square':
+      drawSquareGrid(doc, x + gridOffsetX, y + gridOffsetY, width, height, gridSize);
+      break;
+    case 'hexagon':
+      drawHexagonGrid(doc, x + gridOffsetX, y + gridOffsetY, width, height, gridSize);
+      break;
+    case 'isometric':
+      drawIsometricGrid(doc, x + gridOffsetX, y + gridOffsetY, width, height, gridSize);
+      break;
+    case 'universal':
+      drawUniversalGrid(doc, x + gridOffsetX, y + gridOffsetY, width, height, gridSize);
+      break;
+    default:
+      drawSquareGrid(doc, x + gridOffsetX, y + gridOffsetY, width, height, gridSize);
+  }
+  
+  doc.restore();
+}
+
+// Square grid implementation
+function drawSquareGrid(doc: PDFDocument, startX: number, startY: number, width: number, height: number, gridSize: number) {
+  // Draw vertical lines
+  for (let x = startX; x <= startX + width; x += gridSize) {
+    if (x >= startX && x <= startX + width) {
+      doc.moveTo(x, startY).lineTo(x, startY + height);
+    }
+  }
+  
+  // Draw horizontal lines
+  for (let y = startY; y <= startY + height; y += gridSize) {
+    if (y >= startY && y <= startY + height) {
+      doc.moveTo(startX, y).lineTo(startX + width, y);
+    }
+  }
+  
+  doc.stroke();
+}
+
+// Hexagon grid implementation
+function drawHexagonGrid(doc: PDFDocument, startX: number, startY: number, width: number, height: number, gridSize: number) {
+  const hexWidth = gridSize;
+  const hexHeight = gridSize * Math.sqrt(3) / 2;
+  const hexRadius = gridSize / 2;
+  
+  const rows = Math.ceil(height / hexHeight) + 1;
+  const cols = Math.ceil(width / hexWidth) + 1;
+  
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const offsetX = (row % 2) * (hexWidth / 2);
+      const centerX = startX + col * hexWidth + offsetX;
+      const centerY = startY + row * hexHeight;
+      
+      if (centerX >= startX - hexRadius && centerX <= startX + width + hexRadius &&
+          centerY >= startY - hexRadius && centerY <= startY + height + hexRadius) {
+        drawHexagon(doc, centerX, centerY, hexRadius);
+      }
+    }
+  }
+}
+
+// Helper function to draw a hexagon
+function drawHexagon(doc: PDFDocument, centerX: number, centerY: number, radius: number) {
+  const angles = [0, 60, 120, 180, 240, 300];
+  
+  angles.forEach((angle, index) => {
+    const radian = (angle * Math.PI) / 180;
+    const x = centerX + radius * Math.cos(radian);
+    const y = centerY + radius * Math.sin(radian);
+    
+    if (index === 0) {
+      doc.moveTo(x, y);
+    } else {
+      doc.lineTo(x, y);
+    }
+  });
+  
+  doc.closePath().stroke();
+}
+
+// Isometric grid implementation
+function drawIsometricGrid(doc: PDFDocument, startX: number, startY: number, width: number, height: number, gridSize: number) {
+  const angle30 = Math.PI / 6; // 30 degrees
+  const angle150 = Math.PI * 5 / 6; // 150 degrees
+  
+  // Draw lines at 30 degrees
+  const spacing = gridSize / Math.cos(angle30);
+  for (let i = 0; i <= (width + height) / spacing; i++) {
+    const x1 = startX + i * spacing * Math.cos(angle30);
+    const y1 = startY - i * spacing * Math.sin(angle30);
+    const x2 = x1 + height * Math.sin(angle30);
+    const y2 = y1 + height * Math.cos(angle30);
+    
+    doc.moveTo(x1, y1).lineTo(x2, y2);
+  }
+  
+  // Draw lines at 150 degrees
+  for (let i = 0; i <= (width + height) / spacing; i++) {
+    const x1 = startX + width - i * spacing * Math.cos(angle30);
+    const y1 = startY - i * spacing * Math.sin(angle30);
+    const x2 = x1 - height * Math.sin(angle30);
+    const y2 = y1 + height * Math.cos(angle30);
+    
+    doc.moveTo(x1, y1).lineTo(x2, y2);
+  }
+  
+  // Draw horizontal lines
+  for (let y = startY; y <= startY + height; y += gridSize) {
+    doc.moveTo(startX, y).lineTo(startX + width, y);
+  }
+  
+  doc.stroke();
+}
+
+// Universal grid implementation (combination of square and diagonal)
+function drawUniversalGrid(doc: PDFDocument, startX: number, startY: number, width: number, height: number, gridSize: number) {
+  // Draw basic square grid
+  drawSquareGrid(doc, startX, startY, width, height, gridSize);
+  
+  // Add diagonal lines
+  doc.save();
+  doc.strokeColor('#cccccc'); // Lighter color for diagonals
+  doc.lineWidth(0.5);
+  
+  // Draw diagonal lines every grid cell
+  const cols = Math.ceil(width / gridSize);
+  const rows = Math.ceil(height / gridSize);
+  
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const x = startX + col * gridSize;
+      const y = startY + row * gridSize;
+      
+      // Diagonal from top-left to bottom-right
+      doc.moveTo(x, y).lineTo(x + gridSize, y + gridSize);
+      // Diagonal from top-right to bottom-left  
+      doc.moveTo(x + gridSize, y).lineTo(x, y + gridSize);
+    }
+  }
+  
+  doc.stroke();
+  doc.restore();
+}
+
+// Enhanced backside numbering with logo
+async function addBacksideNumbering(doc: PDFDocument, paperSize: { width: number; height: number }, pageNumber: number) {
+  try {
+    const logoPath = path.join(__dirname, 'assets', 'logo.png');
+    console.log('🖼️ Checking logo at path:', logoPath);
+    
+    // Check if logo exists
+    const logoExists = await fs.access(logoPath).then(() => true).catch(() => false);
+    console.log('🖼️ Logo exists:', logoExists);
+    
+    if (logoExists) {
+      // Get logo dimensions to calculate proper positioning
+      const logoBuffer = await fs.readFile(logoPath);
+      const logoMetadata = await sharp(logoBuffer).metadata();
+      
+      const logoWidth = 80; // Fixed logo width in points
+      const logoHeight = logoMetadata.height && logoMetadata.width 
+        ? (logoWidth * logoMetadata.height) / logoMetadata.width 
+        : 80; // Maintain aspect ratio or default to square
+      
+      // Calculate perfect center positions
+      const centerX = paperSize.width / 2;
+      const centerY = paperSize.height / 2;
+      
+      // Position logo above the page number
+      const logoX = centerX - logoWidth / 2;
+      const logoY = centerY - 60; // 60 points above center
+      
+      // Add logo
+      console.log('🖼️ Adding logo to PDF at position:', { logoX, logoY, logoWidth, logoHeight });
+      doc.image(logoBuffer, logoX, logoY, {
+        width: logoWidth,
+        height: logoHeight
+      });
+      console.log('🖼️ Logo added successfully');
+      
+      // Position page number below logo
+      const fontSize = 48;
+      doc.fontSize(fontSize)
+         .fillColor('#000000');
+      
+      // Calculate text dimensions for perfect centering
+      const textWidth = doc.widthOfString(pageNumber.toString());
+      const textHeight = fontSize; // Approximate text height
+      
+      const textX = centerX - textWidth / 2;
+      const textY = centerY + 20; // 20 points below center
+      
+      doc.text(pageNumber.toString(), textX, textY);
+      
+    } else {
+      // Fallback: just center the page number if logo doesn't exist
+      const fontSize = 72;
+      doc.fontSize(fontSize)
+         .fillColor('#000000');
+      
+      const textWidth = doc.widthOfString(pageNumber.toString());
+      const textHeight = fontSize;
+      
+      const textX = paperSize.width / 2 - textWidth / 2;
+      const textY = paperSize.height / 2 - textHeight / 2;
+      
+      doc.text(pageNumber.toString(), textX, textY);
+    }
+  } catch (error) {
+    console.error('Error adding backside numbering:', error);
+    // Fallback to simple numbering
+    doc.fontSize(72)
+       .fillColor('#000000')
+       .text(pageNumber.toString(), paperSize.width / 2 - 20, paperSize.height / 2 - 36, {
+         align: 'center'
+       });
   }
 }
 
