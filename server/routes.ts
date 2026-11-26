@@ -9,6 +9,8 @@ import sharp from "sharp";
 import PDFDocument from "pdfkit";
 import { fileURLToPath } from 'url';
 
+type PdfDocument = InstanceType<typeof PDFDocument>;
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -570,7 +572,7 @@ async function generatePDF(project: MapProject): Promise<string> {
 }
 
 // Grid overlay drawing function
-function drawGridOverlay(doc: PDFDocument, options: {
+function drawGridOverlay(doc: PdfDocument, options: {
   x: number;
   y: number;
   width: number;
@@ -618,7 +620,7 @@ function drawGridOverlay(doc: PDFDocument, options: {
 }
 
 // Square grid implementation
-function drawSquareGrid(doc: PDFDocument, startX: number, startY: number, width: number, height: number, gridSize: number) {
+function drawSquareGrid(doc: PdfDocument, startX: number, startY: number, width: number, height: number, gridSize: number) {
   // Draw vertical lines
   for (let x = startX; x <= startX + width; x += gridSize) {
     if (x >= startX && x <= startX + width) {
@@ -637,7 +639,7 @@ function drawSquareGrid(doc: PDFDocument, startX: number, startY: number, width:
 }
 
 // Hexagon grid implementation
-function drawHexagonGrid(doc: PDFDocument, startX: number, startY: number, width: number, height: number, gridSize: number) {
+function drawHexagonGrid(doc: PdfDocument, startX: number, startY: number, width: number, height: number, gridSize: number) {
   const hexWidth = gridSize;
   const hexHeight = gridSize * Math.sqrt(3) / 2;
   const hexRadius = gridSize / 2;
@@ -660,7 +662,7 @@ function drawHexagonGrid(doc: PDFDocument, startX: number, startY: number, width
 }
 
 // Helper function to draw a hexagon
-function drawHexagon(doc: PDFDocument, centerX: number, centerY: number, radius: number) {
+function drawHexagon(doc: PdfDocument, centerX: number, centerY: number, radius: number) {
   const angles = [0, 60, 120, 180, 240, 300];
   
   angles.forEach((angle, index) => {
@@ -679,7 +681,7 @@ function drawHexagon(doc: PDFDocument, centerX: number, centerY: number, radius:
 }
 
 // Isometric grid implementation
-function drawIsometricGrid(doc: PDFDocument, startX: number, startY: number, width: number, height: number, gridSize: number) {
+function drawIsometricGrid(doc: PdfDocument, startX: number, startY: number, width: number, height: number, gridSize: number) {
   const angle30 = Math.PI / 6; // 30 degrees
   const angle150 = Math.PI * 5 / 6; // 150 degrees
   
@@ -713,7 +715,7 @@ function drawIsometricGrid(doc: PDFDocument, startX: number, startY: number, wid
 }
 
 // Universal grid implementation (combination of square and diagonal)
-function drawUniversalGrid(doc: PDFDocument, startX: number, startY: number, width: number, height: number, gridSize: number) {
+function drawUniversalGrid(doc: PdfDocument, startX: number, startY: number, width: number, height: number, gridSize: number) {
   // Draw basic square grid
   drawSquareGrid(doc, startX, startY, width, height, gridSize);
   
@@ -743,7 +745,7 @@ function drawUniversalGrid(doc: PDFDocument, startX: number, startY: number, wid
 }
 
 // Enhanced backside numbering with logo
-async function addBacksideNumbering(doc: PDFDocument, paperSize: { width: number; height: number }, pageNumber: number) {
+async function addBacksideNumbering(doc: PdfDocument, paperSize: { width: number; height: number }, pageNumber: number) {
   try {
     const logoPath = path.join(__dirname, 'assets', 'logo.png');
     console.log('🖼️ Checking logo at path:', logoPath);
