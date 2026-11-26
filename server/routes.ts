@@ -593,7 +593,7 @@ function drawGridOverlay(doc: PdfDocument, options: {
   doc.save();
   doc.strokeColor(gridColor);
   doc.lineWidth(1);
-  doc.dash([], { phase: 0 }); // Solid lines for grid
+  doc.undash(); // Solid lines for grid
   
   // Calculate grid offset based on crop position
   const gridOffsetX = -(offsetX * scale) % gridSize;
