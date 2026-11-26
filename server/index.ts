@@ -56,12 +56,14 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
+  if (process.env.DISABLE_LISTEN === "1") {
+    log("listening disabled by DISABLE_LISTEN=1");
+    return;
+  }
+
+  // PORT serves both the API and the client. HOST can restrict access locally.
   const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen(port, () => {
+  server.listen({ port, host: process.env.HOST || undefined }, () => {
     log(`serving on port ${port}`);
   });
 })();
